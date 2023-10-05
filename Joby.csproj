@@ -1,0 +1,45 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<OutputType>Library</OutputType>
+		<TargetFramework>net6.0</TargetFramework>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<Nullable>enable</Nullable>
+		<SymbolPackageFormat>symbols.nupkg</SymbolPackageFormat>
+		<GenerateDocumentationFile>True</GenerateDocumentationFile>
+		
+		<PackageId>Joby.Net</PackageId>
+		<Title>Joby.Net</Title>
+		<Authors>CypherPotato</Authors>
+		<Company>CypherPotato</Company>
+		<Product>Joby.Net</Product>
+		<NeutralLanguage>en-US</NeutralLanguage>
+		<Description>Joby is a simple utility for scheduling recurring tasks in your application.</Description>
+		<Summary>Joby is a simple utility for scheduling recurring tasks in your application.</Summary>
+		<RepositoryUrl>https://github.com/CypherPotato/joby.net</RepositoryUrl>
+		<PackageProjectUrl>https://github.com/CypherPotato/joby.net</PackageProjectUrl>
+		<RepositoryType>git</RepositoryType>
+		<PackageTags>job,scheduler</PackageTags>
+
+		<Version>0.1.0.0</Version>
+		<FileVersion>0.1.0.0</FileVersion>
+		<AssemblyVersion>0.1.0.0</AssemblyVersion>
+		
+		<DebugType>embedded</DebugType>
+		<PackageLicenseFile>LICENSE.txt</PackageLicenseFile>
+		<GeneratePackageOnBuild>True</GeneratePackageOnBuild>
+		<PackageReadmeFile>README.md</PackageReadmeFile>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<None Include=".\LICENSE.txt">
+			<Pack>True</Pack>
+			<PackagePath>\</PackagePath>
+		</None>
+		<None Include=".\README.md">
+			<Pack>True</Pack>
+			<PackagePath>\</PackagePath>
+		</None>
+	</ItemGroup>
+
+</Project>
