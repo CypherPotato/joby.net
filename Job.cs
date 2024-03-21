@@ -34,11 +34,20 @@ public abstract class Job
     /// Represents the function that is executed immediately before starting the job.
     /// </summary>
     public virtual void Setup() { }
-
+    
     /// <summary>
     /// Represents the function that runs immediately after the job is stopped.
     /// </summary>
     public virtual void Terminate() { }
+
+    /// <summary>
+    /// Represents the function that configures the job main <see cref="Thread"/>.
+    /// </summary>
+    /// <param name="jobThread">The main job <see cref="Thread"/>.</param>
+    public virtual void ConfigureJobThread(Thread jobThread)
+    {
+        jobThread.IsBackground = true;
+    }
 
     /// <summary>
     /// Represents the function that runs when a job encounters an error.
@@ -71,7 +80,8 @@ public abstract class Job
     public bool Enabled { get; set; } = true;
 
     /// <summary>
-    /// Restarts the job, waiting for the current iteration to finish and starts the job again. This function reconfigures the job with <see cref="Setup"/>.
+    /// Restarts the job, waiting for the current iteration to finish and starts the job again. This function reconfigures the
+    /// job with <see cref="Setup"/>.
     /// </summary>
     public void Restart()
     {
@@ -111,13 +121,60 @@ public abstract class Job
         _isRunning = true;
         var threadStart = new ThreadStart(ThreadHandler);
         _jobThread = new Thread(threadStart);
-        _jobThread.IsBackground = true;
+        ConfigureJobThread(_jobThread);
 
         SafeCall(Setup, JobEventContext.OnSetup);
         _stopEvent.Reset();
-
-        Thread.Sleep(Delay);
         _jobThread.Start();
+    }
+
+    /// <summary>
+    /// Gets all started jobs which implements <typeparamref name="TJob"/> and was
+    /// started by <see cref="Start{TJob}()"/>.
+    /// </summary>
+    /// <typeparam name="TJob">The job type.</typeparam>
+    public static IEnumerable<Job> GetRunningJobs<TJob>() where TJob : Job
+    {
+        foreach (Job j in _allJobs)
+        {
+            if (j is TJob)
+            {
+                yield return j;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Gets the first started job which <typeparamref name="TJob"/> and was
+    /// started by <see cref="Start{TJob}()"/>.
+    /// </summary>
+    /// <typeparam name="TJob">The job type.</typeparam>
+    /// <returns>The <see cref="Job"/>, or null if it was not defined.</returns>
+    public static Job? GetRunningJob<TJob>() where TJob : Job
+    {
+        foreach (Job j in _allJobs)
+        {
+            if (j is TJob)
+            {
+                return j;
+            }
+        }
+        return null;
+    }
+
+    /// <summary>
+    /// Forces all jobs which implements <typeparamref name="TJob"/> to run once. This function does not interfere with the state it is in, that is, it does not start the work.
+    /// </summary>
+    /// <typeparam name="TJob">An type which implements <see cref="Job"/>.</typeparam>
+    public static void ForceRun<TJob>() where TJob : Job
+    {
+        foreach (Job j in _allJobs)
+        {
+            if (j.GetType() == typeof(TJob))
+            {
+                j.Run();
+            }
+        }
     }
 
     /// <summary>
@@ -125,9 +182,23 @@ public abstract class Job
     /// </summary>
     /// <typeparam name="TJob">An type which implements <see cref="Job"/>.</typeparam>
     /// <returns>The new instance of the job.</returns>
-    public static TJob Start<TJob>() where TJob : Job
+    public static TJob Start<TJob>() where TJob : Job, new()
     {
-        TJob job = Activator.CreateInstance<TJob>()!;
+        TJob job = new TJob();
+        job.Start();
+
+        _allJobs.Add(job);
+
+        return job;
+    }
+
+    /// <summary>
+    /// Defines the specified job object and starts it.
+    /// </summary>
+    /// <param name="job">The job to start.</param>
+    /// <returns>The provided job.</returns>
+    public static Job Start(Job job)
+    {
         job.Start();
 
         _allJobs.Add(job);
@@ -159,6 +230,8 @@ public abstract class Job
 
     private void ThreadHandler()
     {
+        // this entire method is running inside an dedicated thread for the job
+        Thread.Sleep(Delay);
         while (_isRunning)
         {
             try

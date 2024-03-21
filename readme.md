@@ -1,6 +1,6 @@
 # joby
 
-Joby is a simple utility for scheduling recurring tasks in your application without having to worry about settings things the right way. These jobs run on separate threads that already have all the necessary properties to have your background task running.
+Joby is a simple utility for scheduling recurring tasks in your application without having to worry about setting things the right way. These jobs run on separate threads that already have all the necessary properties to have your background task running.
 
 See how complicated and hard it is to create a Job with joby:
 
@@ -22,7 +22,7 @@ And to start it:
 static void Main(string[] args)
 {
     Job.Start<HelloJob>();
-    // or
+    // or instanciate it
     new HelloJob().Start();
 }
 ```
@@ -70,10 +70,10 @@ Some jobs may throw errors, but don't worry, you have them at hand, and you don'
 class MyJob : Job
 {
     public override TimeSpan Interval { get; set; } = TimeSpan.FromSeconds(1);
-
+    
     public override void OnException(Exception ex, JobEventContext context)
     {
-        // handle ex here
+        // handle exception here
         base.OnException(ex, context);
     }
 
@@ -142,3 +142,44 @@ By marking your job as "Enabled" to False, it will no longer start.
 ```cs
 myJob.Enabled = false;
 ```
+
+### Custom intervals
+
+You can overload the method which takes the time to wait until the next round is executed. In the example below, we use the [HangfireIO/Cronos](https://github.com/HangfireIO/Cronos) library to schedule the next run.
+
+```cs
+public override TimeSpan GetNextInterval()
+{
+    var expression = CronExpression.Parse("* * * * 4");
+    var now = DateTime.Now;
+
+    return expression.GetNextOccurrence(now) - now;
+}
+```
+
+### Async jobs
+
+Every run is executed synchronously, so the current run waits for `Run()` to finish and then triggers the waiting timer until the next task. Therefore, the waiting time between one task and another adds up the configured interval and the time the previous task took to complete.
+
+To avoid this additional time between one task and another, you can define your `Run()` method as asynchronous, without having a returning Task:
+
+```cs
+class MyJob : Job
+{
+    // interval will always be respected
+    public override TimeSpan Interval { get; set; } = TimeSpan.FromSeconds(5);
+
+    public override async void Run()
+    {
+        ; // do things
+    }
+}
+```
+
+However, it is important to note that if the task execution time is longer than the interval, multiple tasks may be executed simultaneously, as the previous one will never be waited for ending.
+
+Furthermore, if an exception occurs outside the async calling context, that exception will not be caught by `OnException()`. Use `async` with caution.
+
+## License
+
+This library is distributed under the MIT license.
