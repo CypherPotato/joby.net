@@ -1,4 +1,5 @@
 ﻿using System.Timers;
+using Joby.Metrics;
 using Timer = System.Timers.Timer;
 
 namespace Joby;
@@ -53,6 +54,18 @@ public abstract class Job : IJob, IPeriodicJob {
         Console.WriteLine ( $"Exception caught on job {GetType ().FullName}, on {context}, at {DateTime.Now:g}:" );
         Console.WriteLine ( ex );
     }
+
+    /// <summary>
+    /// Runs immediately before each job iteration starts.
+    /// </summary>
+    public virtual void OnBeforeRun () { }
+
+    /// <summary>
+    /// Runs immediately after each job iteration finishes.
+    /// </summary>
+    /// <param name="resources">The resource usage snapshot captured for the job iteration.</param>
+    /// <param name="exception">The exception thrown by the iteration, or <see langword="null"/> when it completed successfully.</param>
+    public virtual void OnAfterRun ( ResourceSnapshot resources, Exception? exception ) { }
 
     /// <summary>
     /// Gets whether this job is running or not.
@@ -218,19 +231,35 @@ public abstract class Job : IJob, IPeriodicJob {
     }
 
     private void Tick ( object? state, ElapsedEventArgs /*DO NOT USE*/_ ) {
+        ResourceMeasurer? resourceMeasurer = null;
+        Exception? iterationException = null;
+
         try {
             if (!_isRunning)
                 return;
 
+            resourceMeasurer = ResourceMeasurer.StartCapturingCurrent ();
+            OnBeforeRun ();
             Run ();
         }
         catch (Exception ex) {
+            iterationException = ex;
             OnException ( ex, JobEventContext.OnRun );
             if (ExceptionHandler == JobExceptionHandler.Stop) {
                 Stop ();
             }
         }
         finally {
+            if (resourceMeasurer is { } measurer) {
+                try {
+                    ResourceSnapshot resources = measurer.Snapshot ();
+                    SafeCall ( () => OnAfterRun ( resources, iterationException ), JobEventContext.OnRun );
+                }
+                finally {
+                    measurer.Dispose ();
+                }
+            }
+
             _jobEvent.Set ();
 
             TimeSpan nextInterval = GetNextInterval ();
